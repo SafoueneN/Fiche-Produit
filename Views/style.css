@@ -1,0 +1,156 @@
+/* Reset des marges et des espacements par défaut */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Style global du body */
+body {
+    font-family: Arial, sans-serif;
+    background-color: #003366; /* Bleu foncé */
+    color: #fff; /* Texte blanc pour le contraste */
+    padding-top: 40px;
+}
+
+/* Container du formulaire */
+form {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    width: 80%;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+/* Titre principal */
+h1 {
+    text-align: center;
+    color: #5A5A5A;
+    margin: 20px 0;
+}
+
+/* Style des labels */
+label {
+    font-weight: bold;
+    display: block;
+    margin: 10px 0 5px;
+}
+
+/* Champs de saisie : texte, nombre, select, textarea */
+input[type="text"],
+input[type="number"],
+textarea,
+select {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 20px;
+    border: 2px solid #ccc; /* Gris par défaut */
+    border-radius: 4px;
+    font-size: 16px;
+    transition: border 0.3s ease;
+}
+
+/* Textarea spécifique */
+textarea {
+    height: 100px;
+    resize: vertical;
+}
+
+/* Bouton de soumission */
+button {
+    background-color: #4CAF50;
+    color: white;
+    padding: 15px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    width: 100%;
+    margin-top: 10px;
+}
+
+button:hover {
+    background-color: #45a049;
+}
+
+/* Si champ touché + invalide => rouge */
+input.touched:invalid,
+select.touched:invalid,
+textarea.touched:invalid {
+    border: 2px solid red;
+}
+
+/* Si champ valide => vert */
+input:valid,
+select:valid,
+textarea:valid {
+    border: 2px solid green;
+}
+
+/* Focus actif */
+input:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    border: 2px solid #4CAF50;
+}
+
+/* Focus ET valide */
+input:focus:valid,
+select:focus:valid,
+textarea:focus:valid {
+    border: 2px solid green;
+}
+
+/* Barre de progression fixe en haut */
+.progress-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 30px;
+    background-color: #e0e0e0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Barre de progression interne */
+.progress-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background-color: #4CAF50;
+    width: 0;
+    transition: width 0.4s ease;
+    z-index: 1;
+}
+
+/* Texte au-dessus de la barre */
+.progress-text {
+    position: relative;
+    z-index: 2;
+    font-size: 14px;
+    color: white;
+    font-weight: bold;
+}
+select {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  background-color: #f8f9fa;
+  font-size: 16px;
+  color: #333;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  transition: border-color 0.3s ease-in-out;
+}
+
+select:focus {
+  border-color: #007bff;
+  outline: none;
+}
