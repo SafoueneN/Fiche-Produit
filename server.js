@@ -7,15 +7,18 @@ const PDFDocument = require('pdfkit');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// ✅ Moteur de vue EJS correctement défini
+// ✅ Correction des options du moteur de vues
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
+// Middleware
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Fonction utilitaire
 const getValue = (val) => (val && val.trim ? val.trim() : 'Néant');
 
+// Fonction pour afficher l’en-tête du PDF
 function drawHeader(doc, logoPath) {
   const logoWidth = 150;
   const pageWidth = doc.page.width;
@@ -41,11 +44,12 @@ function drawHeader(doc, logoPath) {
   doc.moveDown(2);
 }
 
-// 👉 Route GET pour afficher un formulaire vide
+// ✅ Route GET — Formulaire vide
 app.get('/', (req, res) => {
   res.render('formulaire', { data: {} });
 });
 
+// ✅ Route POST — Génération du PDF
 app.post('/submit', (req, res) => {
   const data = req.body;
   const doc = new PDFDocument({ size: 'A4', margin: 50 });
@@ -53,17 +57,17 @@ app.post('/submit', (req, res) => {
   const operationCode = getValue(data.code).replace(/[^a-zA-Z0-9_-]/g, '_');
   const operationLabel = getValue(data.libelle).replace(/[^a-zA-Z0-9_-]/g, '_');
   const pdfFilename = `${operationCode}_${operationLabel}.pdf`;
-  const pdfPath = path.join(__dirname, 'exports', pdfFilename);
+
+  const exportDir = path.join(__dirname, 'exports');
+  const pdfPath = path.join(exportDir, pdfFilename);
   const logoPath = path.join(__dirname, 'public/images/logo.jpg');
 
-  if (!fs.existsSync(path.join(__dirname, 'exports'))) {
-    fs.mkdirSync(path.join(__dirname, 'exports'));
+  if (!fs.existsSync(exportDir)) {
+    fs.mkdirSync(exportDir);
   }
 
-  doc.pipe(fs.createWriteStream(pdfPath));
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `attachment; filename="${pdfFilename}"`);
-  doc.pipe(res);
+  const writeStream = fs.createWriteStream(pdfPath);
+  doc.pipe(writeStream);
 
   doc.moveDown(2);
   drawHeader(doc, logoPath);
@@ -72,7 +76,7 @@ app.post('/submit', (req, res) => {
     ["Code de l'opération", data.code],
     ["Libellé de l'opération", data.libelle],
     ["Nature de type opération", data.nature],
-    ["Effet d'opération", data.effet],
+    ["Effet d'opération", data.effet_operation],
     ["Descriptif de l'opération", data.descriptif],
     ["Signe de l'opération", data.signe],
     ["Destination de l'opération", data.destination],
@@ -142,7 +146,6 @@ app.post('/submit', (req, res) => {
   });
 
   currentY += 20;
-
   const generationDate = new Date().toLocaleDateString('fr-FR');
   doc.fontSize(10)
     .fillColor('#777777')
@@ -154,8 +157,13 @@ app.post('/submit', (req, res) => {
     );
 
   doc.end();
+
+  writeStream.on('finish', () => {
+    res.download(pdfPath);
+  });
 });
 
+// ✅ Démarrage du serveur
 app.listen(port, () => {
   console.log(`✅ Serveur en cours sur http://localhost:${port}`);
 });
