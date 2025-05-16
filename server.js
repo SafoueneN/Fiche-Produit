@@ -1,11 +1,8 @@
-// ✅ server.js modifié
 const express = require('express');
 const path = require('path');
 const bodyParser = require('body-parser');
 const fs = require('fs');
-const pdfParse = require('pdf-parse');
 const PDFDocument = require('pdfkit');
-const { formidable } = require('formidable');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -21,10 +18,9 @@ function drawHeader(doc, logoPath) {
   const logoWidth = 150;
   const pageWidth = doc.page.width;
   const x = (pageWidth - logoWidth) / 2;
-  const y = doc.y;
 
   if (fs.existsSync(logoPath)) {
-    doc.image(logoPath, x, y, { width: logoWidth });
+    doc.image(logoPath, x, doc.y, { width: logoWidth });
     doc.moveDown(2);
   }
 
@@ -43,72 +39,9 @@ function drawHeader(doc, logoPath) {
   doc.moveDown(2);
 }
 
-function addSectionTitle(doc, title, currentY) {
-  doc.font('Helvetica-Bold')
-    .fontSize(14)
-    .fillColor('#003366')
-    .text(title, 50, currentY);
-  return doc.y + 10;
-}
-
+// 👉 Route GET pour afficher un formulaire vide
 app.get('/', (req, res) => {
-  res.render('index');
-});
-
-app.post('/upload-pdf', (req, res) => {
-  const form = formidable({
-    multiples: false,
-    keepExtensions: true,
-    uploadDir: path.join(__dirname, 'uploads')
-  });
-
-  form.parse(req, async (err, fields, files) => {
-    if (err) return res.status(500).send("Erreur lors de l'analyse du fichier PDF.");
-
-    const pdfFile = files.pdfFile?.[0];
-    if (!pdfFile || !pdfFile.filepath) {
-      return res.status(400).send("Fichier PDF non reçu.");
-    }
-
-    const dataBuffer = fs.readFileSync(pdfFile.filepath);
-    const pdfText = (await pdfParse(dataBuffer)).text;
-
-    const extract = (label) => {
-      const regex = new RegExp(label + '\\s*([^\\n]*)');
-      const match = pdfText.match(regex);
-      return match ? match[1].trim() : '';
-    };
-
-    const data = {
-      code: extract("Code d'opération"),
-      libelle: extract("Libellé de l'opération"),
-      nature: extract("Nature de type opération"),
-      effet: extract("Effet d'opération"),
-      descriptif: extract("Descriptif de l'opération"),
-      signe: extract("Signe de l'opération"),
-      destination: extract("Destination de l'opération"),
-      type_impact: extract("Type d'impact"),
-      debit_credit_immediat: extract("Débit/Crédit immédiat"),
-      autoriser_paiement_partiel: extract("Autoriser le paiement partiel"),
-      type_annulation: extract("Type opération d'annulation"),
-      type_rejet: extract("Type opération de rejet"),
-      type_interne_recue: extract("Type opération interne reçue"),
-      devise: extract("Devise"),
-      application_tva: extract("Application TVA"),
-      activation_compte: extract("Opération qui active le compte"),
-      reserve_blocage: extract("Réserve opération de blocage"),
-      operation_force: extract("Opération soumise au forçage"),
-      validation_processus: extract("validation"),
-      dereserve_agios: extract("Déréservé AGIOS"),
-      regle_conversion: extract("Règle de conversion"),
-      envoi_sdm: extract("Envoi à la SDM en fin de journée"),
-      comptes_compatibles: ['PAAA01', 'PAAA02', 'PAAA04', 'PAAA06', 'PAAA09'],
-      direction: extract("Direction concernée"),
-      charge: extract("Chargé")
-    };
-
-    res.render('formulaire', { data });
-  });
+  res.render('formulaire', { data: {} });
 });
 
 app.post('/submit', (req, res) => {
@@ -132,14 +65,6 @@ app.post('/submit', (req, res) => {
 
   doc.moveDown(2);
   drawHeader(doc, logoPath);
-
-  const sections = [
-    { title: "🗂️ Informations générales", indexes: [0, 1, 2] },
-    { title: "⚙️ Paramètres de l'opération", indexes: [3, 4, 5, 6, 7, 8, 9] },
-    { title: "📘 Comportement", indexes: [10, 11, 12] },
-    { title: "💱 Devise et TVA", indexes: [13, 14, 15, 16, 17, 18, 19, 20] },
-    { title: "🏦 Compatibilité et Responsable", indexes: [21, 22, 23] }
-  ];
 
   const champs = [
     ["Code de l'opération", data.code],
@@ -176,47 +101,42 @@ app.post('/submit', (req, res) => {
   const valueColWidth = tableWidth - labelColWidth - colGap;
   let currentY = doc.y;
 
-  sections.forEach(section => {
-    currentY = addSectionTitle(doc, section.title, currentY);
-    section.indexes.forEach(idx => {
-      const [label, rawValue, isBold] = champs[idx];
-      const value = getValue(rawValue);
-      const rowHeight = Math.max(
-        doc.heightOfString(label, { width: labelColWidth }),
-        doc.heightOfString(value, { width: valueColWidth })
-      ) + cellPadding * 2;
+  champs.forEach(([label, rawValue, isBold], idx) => {
+    const value = getValue(rawValue);
+    const rowHeight = Math.max(
+      doc.heightOfString(label, { width: labelColWidth }),
+      doc.heightOfString(value, { width: valueColWidth })
+    ) + cellPadding * 2;
 
-      if (currentY + rowHeight > doc.page.height - 80) {
-        doc.addPage();
-        drawHeader(doc, logoPath);
-        currentY = doc.y;
-        currentY = addSectionTitle(doc, section.title, currentY);
-      }
+    if (currentY + rowHeight > doc.page.height - 80) {
+      doc.addPage();
+      drawHeader(doc, logoPath);
+      currentY = doc.y;
+    }
 
-      const bgColor = idx % 2 === 0 ? '#f9f9f9' : '#ffffff';
-      doc.rect(50, currentY, tableWidth, rowHeight).fill(bgColor);
-      doc.rect(50, currentY, tableWidth, rowHeight)
-        .strokeColor('#cccccc')
-        .lineWidth(0.5)
-        .stroke();
+    const bgColor = idx % 2 === 0 ? '#f9f9f9' : '#ffffff';
+    doc.rect(50, currentY, tableWidth, rowHeight).fill(bgColor);
+    doc.rect(50, currentY, tableWidth, rowHeight)
+      .strokeColor('#cccccc')
+      .lineWidth(0.5)
+      .stroke();
 
-      doc.fillColor('#333')
-        .font(isBold ? 'Helvetica-Bold' : 'Helvetica')
-        .fontSize(12)
-        .text(label, 50 + cellPadding, currentY + cellPadding, {
-          width: labelColWidth,
-          align: 'left'
-        });
+    doc.fillColor('#333')
+      .font(isBold ? 'Helvetica-Bold' : 'Helvetica')
+      .fontSize(12)
+      .text(label, 50 + cellPadding, currentY + cellPadding, {
+        width: labelColWidth,
+        align: 'left'
+      });
 
-      doc.fillColor(isBold ? '#000000' : (value !== 'Néant' ? '#007B33' : '#FF6347'))
-        .font(isBold ? 'Helvetica-Bold' : 'Helvetica')
-        .text(value, 50 + cellPadding + labelColWidth + colGap, currentY + cellPadding, {
-          width: valueColWidth,
-          align: 'left'
-        });
+    doc.fillColor(isBold ? '#000000' : (value !== 'Néant' ? '#007B33' : '#FF6347'))
+      .font(isBold ? 'Helvetica-Bold' : 'Helvetica')
+      .text(value, 50 + cellPadding + labelColWidth + colGap, currentY + cellPadding, {
+        width: valueColWidth,
+        align: 'left'
+      });
 
-      currentY += rowHeight;
-    });
+    currentY += rowHeight;
   });
 
   currentY += 20;
