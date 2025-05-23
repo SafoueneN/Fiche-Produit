@@ -7,11 +7,9 @@ const PDFDocument = require('pdfkit');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// ✅ Correction des options du moteur de vues
+// Middleware
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
-
-// Middleware
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -44,12 +42,16 @@ function drawHeader(doc, logoPath) {
   doc.moveDown(2);
 }
 
-// ✅ Route GET — Formulaire vide
+// Page d'accueil
 app.get('/', (req, res) => {
+  res.render('accueil'); // accueil avec 2 boutons
+});
+
+// Formulaire financier
+app.get('/formulaire', (req, res) => {
   res.render('formulaire', { data: {} });
 });
 
-// ✅ Route POST — Génération du PDF
 app.post('/submit', (req, res) => {
   const data = req.body;
   const doc = new PDFDocument({ size: 'A4', margin: 50 });
@@ -68,8 +70,6 @@ app.post('/submit', (req, res) => {
 
   const writeStream = fs.createWriteStream(pdfPath);
   doc.pipe(writeStream);
-
-  doc.moveDown(2);
   drawHeader(doc, logoPath);
 
   const champs = [
@@ -149,21 +149,114 @@ app.post('/submit', (req, res) => {
   const generationDate = new Date().toLocaleDateString('fr-FR');
   doc.fontSize(10)
     .fillColor('#777777')
-    .text(
-      `Document généré le ${generationDate} — Direction de l’Organisation & Référentiels -STB BANK-`,
-      50,
-      currentY,
-      { align: 'center', width: tableWidth }
-    );
+    .text(`Document généré le ${generationDate} — Direction de l’Organisation & Référentiels - STB BANK -`, 50, currentY, {
+      align: 'center',
+      width: tableWidth
+    });
 
   doc.end();
-
-  writeStream.on('finish', () => {
-    res.download(pdfPath);
-  });
+  writeStream.on('finish', () => res.download(pdfPath));
 });
 
-// ✅ Démarrage du serveur
+// Formulaire caisse
+app.get('/formulaire-caisse', (req, res) => {
+  res.render('formulaire-caisse', { data: {} });
+});
+
+app.post('/submit-caisse', (req, res) => {
+  const data = req.body;
+  const doc = new PDFDocument({ size: 'A4', margin: 50 });
+
+  const operationCode = getValue(data.code).replace(/[^a-zA-Z0-9_-]/g, '_');
+  const operationLabel = getValue(data.libelle_caisse).replace(/[^a-zA-Z0-9_-]/g, '_');
+  const pdfFilename = `${operationCode}_${operationLabel}_CAISSE.pdf`;
+
+  const exportDir = path.join(__dirname, 'exports');
+  const pdfPath = path.join(exportDir, pdfFilename);
+  const logoPath = path.join(__dirname, 'public/images/logo.jpg');
+
+  if (!fs.existsSync(exportDir)) {
+    fs.mkdirSync(exportDir);
+  }
+
+  const writeStream = fs.createWriteStream(pdfPath);
+  doc.pipe(writeStream);
+  drawHeader(doc, logoPath);
+
+  const champs = [
+    ["Code de l'opération", data.code],
+    ["Nature de type de l'opération", data.nature_type],
+    ["Signe", data.signe],
+    ["Nature de type d'opération", data.nature],
+    ["Montant minimum", data.montant_min],
+    ["Montant maximum", data.montant_max],
+    ["Devise", data.devise],
+    ["Opération contrepartie", data.operation_contrepartie],
+    ["Libellé de l'OP contrepartie", data.libelle_contrepartie],
+    ["Type d'entité", data.entite],
+    ["Type d'éligibilité", data.eligibilite],
+    ["Libellé opération de caisse", data.libelle_caisse],
+  ];
+
+  const tableWidth = 500;
+  const cellPadding = 8;
+  const colGap = 20;
+  const labelColWidth = tableWidth * 0.4;
+  const valueColWidth = tableWidth - labelColWidth - colGap;
+  let currentY = doc.y;
+
+  champs.forEach(([label, rawValue], idx) => {
+    const value = getValue(rawValue);
+    const rowHeight = Math.max(
+      doc.heightOfString(label, { width: labelColWidth }),
+      doc.heightOfString(value, { width: valueColWidth })
+    ) + cellPadding * 2;
+
+    if (currentY + rowHeight > doc.page.height - 80) {
+      doc.addPage();
+      drawHeader(doc, logoPath);
+      currentY = doc.y;
+    }
+
+    const bgColor = idx % 2 === 0 ? '#f0f8ff' : '#ffffff';
+    doc.rect(50, currentY, tableWidth, rowHeight).fill(bgColor);
+    doc.rect(50, currentY, tableWidth, rowHeight)
+      .strokeColor('#cccccc')
+      .lineWidth(0.5)
+      .stroke();
+
+    doc.fillColor('#333')
+      .font('Helvetica-Bold')
+      .fontSize(12)
+      .text(label, 50 + cellPadding, currentY + cellPadding, {
+        width: labelColWidth,
+        align: 'left'
+      });
+
+    doc.fillColor(value !== 'Néant' ? '#007B33' : '#FF6347')
+      .font('Helvetica')
+      .text(value, 50 + cellPadding + labelColWidth + colGap, currentY + cellPadding, {
+        width: valueColWidth,
+        align: 'left'
+      });
+
+    currentY += rowHeight;
+  });
+
+  currentY += 20;
+  const generationDate = new Date().toLocaleDateString('fr-FR');
+  doc.fontSize(10)
+    .fillColor('#777777')
+    .text(`Document généré le ${generationDate} — Direction de l’Organisation & Référentiels - STB BANK -`, 50, currentY, {
+      align: 'center',
+      width: tableWidth
+    });
+
+  doc.end();
+  writeStream.on('finish', () => res.download(pdfPath));
+});
+
+// Lancer le serveur
 app.listen(port, () => {
   console.log(`✅ Serveur en cours sur http://localhost:${port}`);
 });
