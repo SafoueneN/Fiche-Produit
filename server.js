@@ -19,8 +19,7 @@ const getValue = (val) => (val && val.trim ? val.trim() : 'Néant');
 // Fonction pour afficher l’en-tête du PDF
 function drawHeader(doc, logoPath) {
   const logoWidth = 150;
-  const pageWidth = doc.page.width;
-  const x = (pageWidth - logoWidth) / 2;
+  const x = (doc.page.width - logoWidth) / 2;
 
   if (fs.existsSync(logoPath)) {
     doc.image(logoPath, x, doc.y, { width: logoWidth });
@@ -44,7 +43,7 @@ function drawHeader(doc, logoPath) {
 
 // Page d'accueil
 app.get('/', (req, res) => {
-  res.render('accueil'); // accueil avec 2 boutons
+  res.render('accueil');
 });
 
 // Formulaire financier
@@ -100,60 +99,7 @@ app.post('/submit', (req, res) => {
     ["Chargé", data.charge, true]
   ];
 
-  const tableWidth = 500;
-  const cellPadding = 8;
-  const colGap = 20;
-  const labelColWidth = tableWidth * 0.4;
-  const valueColWidth = tableWidth - labelColWidth - colGap;
-  let currentY = doc.y;
-
-  champs.forEach(([label, rawValue, isBold], idx) => {
-    const value = getValue(rawValue);
-    const rowHeight = Math.max(
-      doc.heightOfString(label, { width: labelColWidth }),
-      doc.heightOfString(value, { width: valueColWidth })
-    ) + cellPadding * 2;
-
-    if (currentY + rowHeight > doc.page.height - 80) {
-      doc.addPage();
-      drawHeader(doc, logoPath);
-      currentY = doc.y;
-    }
-
-    const bgColor = idx % 2 === 0 ? '#f9f9f9' : '#ffffff';
-    doc.rect(50, currentY, tableWidth, rowHeight).fill(bgColor);
-    doc.rect(50, currentY, tableWidth, rowHeight)
-      .strokeColor('#cccccc')
-      .lineWidth(0.5)
-      .stroke();
-
-    doc.fillColor('#333')
-      .font(isBold ? 'Helvetica-Bold' : 'Helvetica')
-      .fontSize(12)
-      .text(label, 50 + cellPadding, currentY + cellPadding, {
-        width: labelColWidth,
-        align: 'left'
-      });
-
-    doc.fillColor(isBold ? '#000000' : (value !== 'Néant' ? '#007B33' : '#FF6347'))
-      .font(isBold ? 'Helvetica-Bold' : 'Helvetica')
-      .text(value, 50 + cellPadding + labelColWidth + colGap, currentY + cellPadding, {
-        width: valueColWidth,
-        align: 'left'
-      });
-
-    currentY += rowHeight;
-  });
-
-  currentY += 20;
-  const generationDate = new Date().toLocaleDateString('fr-FR');
-  doc.fontSize(10)
-    .fillColor('#777777')
-    .text(`Document généré le ${generationDate} — Direction de l’Organisation & Référentiels - STB BANK -`, 50, currentY, {
-      align: 'center',
-      width: tableWidth
-    });
-
+  renderChampsToPDF(doc, champs, logoPath);
   doc.end();
   writeStream.on('finish', () => res.download(pdfPath));
 });
@@ -168,7 +114,7 @@ app.post('/submit-caisse', (req, res) => {
   const doc = new PDFDocument({ size: 'A4', margin: 50 });
 
   const operationCode = getValue(data.code).replace(/[^a-zA-Z0-9_-]/g, '_');
-  const operationLabel = getValue(data.libelle).replace(/[^a-zA-Z0-9_-]/g, '_'); // libelle unifié
+  const operationLabel = getValue(data.libelle).replace(/[^a-zA-Z0-9_-]/g, '_');
   const pdfFilename = `${operationCode}_${operationLabel}.pdf`;
 
   const exportDir = path.join(__dirname, 'exports');
@@ -193,10 +139,17 @@ app.post('/submit-caisse', (req, res) => {
     ["Devise", data.devise],
     ["Opération contrepartie", data.operation_contrepartie],
     ["Libellé de l'OP contrepartie", data.libelle_contrepartie],
-    ["Direction concernée", data.direction],
-    ["Chargé", data.charge]
+    ["Direction concernée", data.direction, true],
+    ["Chargé", data.charge, true]
   ];
 
+  renderChampsToPDF(doc, champs, logoPath);
+  doc.end();
+  writeStream.on('finish', () => res.download(pdfPath));
+});
+
+// Fonction de rendu des champs dans le PDF
+function renderChampsToPDF(doc, champs, logoPath) {
   const tableWidth = 500;
   const cellPadding = 8;
   const colGap = 20;
@@ -204,7 +157,7 @@ app.post('/submit-caisse', (req, res) => {
   const valueColWidth = tableWidth - labelColWidth - colGap;
   let currentY = doc.y;
 
-  champs.forEach(([label, rawValue], idx) => {
+  champs.forEach(([label, rawValue, isBold], idx) => {
     const value = getValue(rawValue);
     const rowHeight = Math.max(
       doc.heightOfString(label, { width: labelColWidth }),
@@ -232,8 +185,8 @@ app.post('/submit-caisse', (req, res) => {
         align: 'left'
       });
 
-    doc.fillColor(value !== 'Néant' ? '#007B33' : '#FF6347')
-      .font('Helvetica')
+    doc.fillColor(isBold ? '#000000' : (value !== 'Néant' ? '#007B33' : '#FF6347'))
+      .font(isBold ? 'Helvetica-Bold' : 'Helvetica')
       .text(value, 50 + cellPadding + labelColWidth + colGap, currentY + cellPadding, {
         width: valueColWidth,
         align: 'left'
@@ -250,11 +203,7 @@ app.post('/submit-caisse', (req, res) => {
       align: 'center',
       width: tableWidth
     });
-
-  doc.end();
-  writeStream.on('finish', () => res.download(pdfPath));
-});
-
+}
 
 // Lancer le serveur
 app.listen(port, () => {
