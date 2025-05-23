@@ -168,8 +168,8 @@ app.post('/submit-caisse', (req, res) => {
   const doc = new PDFDocument({ size: 'A4', margin: 50 });
 
   const operationCode = getValue(data.code).replace(/[^a-zA-Z0-9_-]/g, '_');
-  const operationLabel = getValue(data.libelle_caisse).replace(/[^a-zA-Z0-9_-]/g, '_');
-  const pdfFilename = `${operationCode}_${operationLabel}_CAISSE.pdf`;
+  const operationLabel = getValue(data.libelle).replace(/[^a-zA-Z0-9_-]/g, '_'); // libelle unifié
+  const pdfFilename = `${operationCode}_${operationLabel}.pdf`;
 
   const exportDir = path.join(__dirname, 'exports');
   const pdfPath = path.join(exportDir, pdfFilename);
@@ -185,17 +185,16 @@ app.post('/submit-caisse', (req, res) => {
 
   const champs = [
     ["Code de l'opération", data.code],
-    ["Nature de type de l'opération", data.nature_type],
-    ["Signe", data.signe],
+    ["Libellé de l'opération", data.libelle],
     ["Nature de type d'opération", data.nature],
+    ["Signe", data.signe],
     ["Montant minimum", data.montant_min],
     ["Montant maximum", data.montant_max],
     ["Devise", data.devise],
     ["Opération contrepartie", data.operation_contrepartie],
     ["Libellé de l'OP contrepartie", data.libelle_contrepartie],
-    ["Type d'entité", data.entite],
-    ["Type d'éligibilité", data.eligibilite],
-    ["Libellé opération de caisse", data.libelle_caisse],
+    ["Direction concernée", data.direction],
+    ["Chargé", data.charge]
   ];
 
   const tableWidth = 500;
@@ -255,6 +254,7 @@ app.post('/submit-caisse', (req, res) => {
   doc.end();
   writeStream.on('finish', () => res.download(pdfPath));
 });
+
 
 // Lancer le serveur
 app.listen(port, () => {
